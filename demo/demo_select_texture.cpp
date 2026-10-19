@@ -34,10 +34,15 @@ void mouse(int event, int x, int y, int flags, void* param)
 
 int demo_select_texture(int argc, char* argv[])
 {
-    cv::VideoCapture cap(0);
-    if (!cap.isOpened())
-        return -1;
-
+    cv::VideoCapture cap(0, cv::CAP_V4L2);
+    if (!cap.isOpened()) {
+       std::cerr << "Cannot open camera" << std::endl;
+       return -1;
+    }
+    cap.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('M','J','P','G'));
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+    
     user_data data;
 
     data.wnd = "origin";
