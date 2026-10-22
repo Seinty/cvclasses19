@@ -73,7 +73,6 @@ std::vector<cv::Mat> makeKernels(int kernel_size)
     std::vector<cv::Mat> kernels;
     kernels.reserve(N_THETAS * N_LAMBDAS * N_GAMMAS * N_SIGMAS);
 
-    // Гауссова оболочка должна успеть затухнуть внутри ядра.
     const double max_sigma = kernel_size / 4.0;
 
     for (int t = 0; t < N_THETAS; ++t)
@@ -96,7 +95,6 @@ std::vector<cv::Mat> makeKernels(int kernel_size)
         }
     }
 
-    // Для очень маленьких ядер может не остаться ни одной допустимой sigma.
     if (kernels.empty())
     {
         kernels.push_back(
@@ -108,9 +106,6 @@ std::vector<cv::Mat> makeKernels(int kernel_size)
     return kernels;
 }
 
-// Банк фильтров кэшируется по kernel_size.
-// Внутри одного select_texture kernel_size фиксирован, поэтому
-// getGaborKernel вызывается не более одного раза на вызов select_texture.
 const std::vector<cv::Mat>& getKernels(int kernel_size)
 {
     static std::map<int, std::vector<cv::Mat>> cache;
@@ -129,9 +124,9 @@ void calculateDescriptor(const cv::Mat& image, int kernel_size, descriptor& desc
     descr.clear();
     descr.reserve(2 * kernels.size());
 
-    cv::Mat response;      // переиспользуется между вызовами
-    cv::Scalar mean;       // на стеке
-    cv::Scalar dev;        // на стеке
+    cv::Mat response;      
+    cv::Scalar mean;       
+    cv::Scalar dev;        
 
     for (const auto& kernel : kernels)
     {
