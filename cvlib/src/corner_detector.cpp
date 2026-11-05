@@ -7,6 +7,8 @@
 #include "cvlib.hpp"
 
 #include <ctime>
+#include <random>   
+#include <algorithm> 
 
 namespace cvlib
 {
@@ -77,28 +79,68 @@ void corner_detector_fast::detect(cv::InputArray image, CV_OUT std::vector<cv::K
     }
 }
 
-void corner_detector_fast::compute(cv::InputArray, std::vector<cv::KeyPoint>& keypoints, cv::OutputArray descriptors)
+void corner_detector_fast::compute(cv::InputArray image, std::vector<cv::KeyPoint>& keypoints, cv::OutputArray descriptors)
 {
-    std::srand(unsigned(std::time(0))); // \todo remove me
-    // \todo implement any binary descriptor
-    const int desc_length = 2;
-    descriptors.create(static_cast<int>(keypoints.size()), desc_length, CV_32S);
+    cv::Mat gray = image.getMat();
+    if (gray.channels() > 1)
+        cv::cvtColor(gray, gray, cv::COLOR_BGR2GRAY);
+    if (gray.type() != CV_8U)
+        gray.convertTo(gray, CV_8U);
+
+    const int desc_bytes   = 32;
+    const int desc_bits    = desc_bytes * 8;
+    const int pattern_radius = 15;
+
+    static std::vector<cv::Point2i> pattern_a, pattern_b;
+    if (pattern_a.empty())
+    {
+        std::mt19937 rng(0xFA57u);
+        std::uniform_int_distribution<int> dist(-pattern_radius, pattern_radius);
+        pattern_a.resize(desc_bits);
+        pattern_b.resize(desc_bits);
+        for (int i = 0; i < desc_bits; ++i)
+        {
+            pattern_a[i] = cv::Point2i(dist(rng), dist(rng));
+            pattern_b[i] = cv::Point2i(dist(rng), dist(rng));
+        }
+    }
+
+    descriptors.create(static_cast<int>(keypoints.size()), desc_bytes, CV_8U);
     auto desc_mat = descriptors.getMat();
     desc_mat.setTo(0);
 
-    int* ptr = reinterpret_cast<int*>(desc_mat.ptr());
-    for (const auto& pt : keypoints)
+    auto sample = [&](int x, int y) -> int
     {
-        for (int i = 0; i < desc_length; ++i)
+        x = std::min(std::max(x, 0), gray.cols - 1);
+        y = std::min(std::max(y, 0), gray.rows - 1);
+        return gray.at<uchar>(y, x);
+    };
+
+    for (std::size_t k = 0; k < keypoints.size(); ++k)
+    {
+        const int cx = static_cast<int>(keypoints[k].pt.x);
+        const int cy = static_cast<int>(keypoints[k].pt.y);
+        uchar* desc = desc_mat.ptr<uchar>(static_cast<int>(k));
+
+        for (int i = 0; i < desc_bytes; ++i)
         {
-            *ptr = std::rand();
-            ++ptr;
+            uchar byte = 0;
+            for (int b = 0; b < 8; ++b)
+            {
+                const int idx = i * 8 + b;
+                const int va  = sample(cx + pattern_a[idx].x, cy + pattern_a[idx].y);
+                const int vb  = sample(cx + pattern_b[idx].x, cy + pattern_b[idx].y);
+                if (va < vb)
+                    byte |= static_cast<uchar>(1u << b);
+            }
+            desc[i] = byte;
         }
     }
 }
 
-void corner_detector_fast::detectAndCompute(cv::InputArray, cv::InputArray, std::vector<cv::KeyPoint>&, cv::OutputArray descriptors, bool /*= false*/)
+void corner_detector_fast::detectAndCompute(cv::InputArray image, cv::InputArray mask, std::vector<cv::KeyPoint>& keypoints, cv::OutputArray descriptors, bool /*= false*/)
 {
-    // \todo implement me
+    detect(image, keypoints, mask);
+    compute(image, keypoints, descriptors);
 }
 } // namespace cvlib
