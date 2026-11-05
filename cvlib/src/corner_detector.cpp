@@ -87,7 +87,7 @@ void corner_detector_fast::compute(cv::InputArray image, std::vector<cv::KeyPoin
     if (gray.type() != CV_8U)
         gray.convertTo(gray, CV_8U);
 
-    const int desc_bytes   = 32;
+    const int desc_bytes   = 64;
     const int desc_bits    = desc_bytes * 8;
     const int pattern_radius = 15;
 
